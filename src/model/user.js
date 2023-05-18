@@ -4,7 +4,6 @@ const userSchema = mongoose.Schema(
   {
     name: { type: String },
     email: { type: String, unique: true },
-    phoneNumber: { type: Number, unique: true },
     otp: { type: String },
     otpExpiry: { type: Date },
     wrongOTPAttempts: { type: Number, default: 0 },

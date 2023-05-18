@@ -1,134 +1,166 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require('nodemailer');
-const mongoose = require('mongoose');
-const User = require('../model/user');
-
+const nodemailer = require("nodemailer");
+const mongoose = require("mongoose");
+const User = require("../model/user");
 
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, phoneNumber } = req.body;
+    const { name, email, otp } = req.body;
 
-    // Check if a user with the provided email or phone number already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { phoneNumber }] });
+    // Check if the user already exists
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ error: 'User already exists' });
+      return res.status(409).json({ message: "User already exists" });
     }
 
-    // Create a new user
-    const user = new User({ name, email, phoneNumber });
-    await user.save();
+    // Create a new user instance
+    const newUser = new User({
+      name,
+      email,
+      otp,
+      otpExpiry: new Date(), // Set the otpExpiry to the current date/time
+    });
 
-    res.status(201).json({ message: 'User created successfully' });
+    // Save the user to the database
+    const savedUser = await newUser.save();
+
+    res.status(201).json(savedUser);
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ error: 'Failed to create user' });
+    console.error("Error creating user:", error);
+    res.status(500).json({ error: "Failed to create user" });
   }
 };
 
-
-
-
 const transporter = nodemailer.createTransport({
-  // Configure your email service provider here
-  service: 'gmail',
+  host: 'smtp.ethereal.email',
+  port: 587,
   auth: {
-    user: 'your-email@gmail.com',
-    pass: 'your-email-password'
+      user: 'ford.stehr@ethereal.email',
+      pass: 'k35rD9VVSFE3caS62D'
   }
-});
+}); // i have use ethereal email  (dummy email ) 
 
 exports.generateOTP = async (req, res) => {
-    try {
-      const { email } = req.body;
-
-      // Check if there is an existing user with the provided email
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      // Check if the user's account is blocked due to consecutive wrong OTP attempts
-      if (user.blockedUntil && user.blockedUntil > Date.now()) {
-        return res.status(403).json({ error: 'Account blocked. Please try again later' });
-      }
-
-      // Check if the minimum time gap between OTP requests has passed
-      if (user.lastOTPSendTime && user.lastOTPSendTime > Date.now() - 60000) {
-        return res.status(429).json({ error: 'Please wait for 1 minute before requesting a new OTP' });
-      }
-
-      // Generate a new OTP
-      const otp = generateOTP();
-
-      // Update the user's OTP and lastOTPSendTime
-      user.otp = otp;
-      user.lastOTPSendTime = new Date();
-      await user.save();
-
-      // Send the OTP to the user's email
-      await transporter.sendMail({
-        from: 'your-email@gmail.com',
-        to: email,
-        subject: 'OTP Verification',
-        text: `Your OTP: ${otp}`
-      });
-
-      res.json({ message: 'OTP sent successfully' });
-    } catch (error) {
-      console.error('Error generating OTP:', error);
-      res.status(500).json({ error: 'Failed to generate OTP' });
+  try {
+    let { email , otp } = req.body;
+    console.log("hi");
+    // Check if there is an existing user with the provided email
+    const user = await User.findOne({ email: email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
-  },
 
+    const MAX_WRONG_OTP_ATTEMPTS = 5;
+    const BLOCK_DURATION = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
+    
+    // Check if the user's account is blocked due to consecutive wrong OTP attempts
+    if (user.wrongOTPAttempts >= MAX_WRONG_OTP_ATTEMPTS && user.blockedUntil && user.blockedUntil > Date.now()) {
+      return res.status(403).json({ error: "Account blocked. Please try again later" });
+    }
+    
+    // Verify the OTP
+    if (user.otp !== otp) {
+      user.wrongOTPAttempts += 1;
+    
+      // Check if the maximum wrong OTP attempts reached
+      if (user.wrongOTPAttempts > MAX_WRONG_OTP_ATTEMPTS) {
+        user.blockedUntil = new Date(Date.now() + BLOCK_DURATION);
+      }
+    
+      await user.save();
+    
+      // Wrong OTP, handle accordingly
+      return res.status(401).json({ error: "Invalid OTP" });
+    }
+    
+    // Correct OTP, reset the wrongOTPAttempts counter
+    user.wrongOTPAttempts = 0;
+    await user.save();
 
+    // Generate a new OTP
+    const otp1 = generateOTP();
 
+    // Update the user's OTP and lastOTPSendTime
+    user.otp = otp1;
+   
+    await user.save(); 
 
-  exports.login = async (req, res) => {
+    // Send the OTP to the user's email
+    await transporter.sendMail({
+      from: "sumit@gmail.com",
+      to: email,
+      subject: "OTP Verification",
+      text: `Your OTP: ${otp1}`,
+    });
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("Error generating OTP:", error);
+    res.status(500).json({ error: "Failed to generate OTP" });
+  }
+}
+exports.login = async (req, res) => {
     try {
       const { email, otp } = req.body;
 
       // Check if there is an existing user with the provided email
       const user = await User.findOne({ email });
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: "User not found" });
       }
 
+      const MAX_WRONG_OTP_ATTEMPTS = 5;
+      const BLOCK_DURATION = 1 * 60 * 60 * 1000; // 1 hour in milliseconds
+      
       // Check if the user's account is blocked due to consecutive wrong OTP attempts
-      if (user.blockedUntil && user.blockedUntil > Date.now()) {
-        return res.status(403).json({ error: 'Account blocked. Please try again later' });
+      if (user.wrongOTPAttempts >= MAX_WRONG_OTP_ATTEMPTS && user.blockedUntil && user.blockedUntil > Date.now()) {
+        return res.status(403).json({ error: "Account blocked. Please try again later" });
       }
-
-      // Check if the OTP is valid
+      
+      // Verify the OTP
       if (user.otp !== otp) {
-        // Increment the wrongOTPAttempts count
         user.wrongOTPAttempts += 1;
-
-        // Block the user's account if consecutive wrong OTP attempts exceed the limit
-        if (user.wrongOTPAttempts >= 5) {
-          user.blockedUntil = new Date(Date.now() + 3600000); // Block for 1 hour
-          user.wrongOTPAttempts = 0;
+      
+        // Check if the maximum wrong OTP attempts reached
+        if (user.wrongOTPAttempts > MAX_WRONG_OTP_ATTEMPTS) {
+          user.blockedUntil = new Date(Date.now() + BLOCK_DURATION);
         }
-
+      
         await user.save();
-
-        return res.status(401).json({ error: 'Invalid OTP' });
+      
+        // Wrong OTP, handle accordingly
+        return res.status(401).json({ error: "Invalid OTP" });
       }
-
-      // Reset the wrongOTPAttempts count
+      
+      // Correct OTP, reset the wrongOTPAttempts counter
       user.wrongOTPAttempts = 0;
       await user.save();
-
+  
+      // // Generate a new OTP
+      // const otp1 = generateOTP();
+  
+      // // Update the user's OTP and lastOTPSendTime
+       
+     
+      // await user.save(); 
+  
+      // Send the OTP to the user's email
+      await transporter.sendMail({
+        from: "sumit@gmail.com",
+        to: email,
+        subject: "OTP Verification",
+        text: `Your OTP: ${otp}`,
+      });
       // Generate a new JWT token
-      const token = jwt.sign({ email }, 'your-secret-key', { expiresIn: '1h' });
+      const token = jwt.sign({ email }, "your-secret-key", { expiresIn: "1h" });
 
       res.json({ token });
     } catch (error) {
-      console.error('Error during login:', error);
-      res.status(500).json({ error: 'Login failed' });
+      console.error("Error during login:", error);
+      res.status(500).json({ error: "Login failed" });
     }
   }
-
 
 function generateOTP() {
   // Generate a random 6-digit OTP
