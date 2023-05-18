@@ -27,7 +27,7 @@ mongoose
 
 
   app.get('/',(req,res)=>{
-res.send("hello")
+res.send("hello world")
   })
 app.use("/api/v1", userRouter);
 
