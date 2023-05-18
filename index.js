@@ -5,10 +5,7 @@ const cors = require("cors");
 const app = express();
 const bodyparser = require("body-parser");
 // const serverless = require('serverless-http')
-const userRouter = require("./src/route/user");
-// const walletRouter = require("./routes/wallet");
-// const paymentRouter=require("./routes/payment")
-
+const userRouter = require("./src/route/user")
 
 
 require("dotenv").config();
@@ -28,24 +25,11 @@ mongoose
     console.log(err);
   });
 
+
+  app.get('/',(req,res)=>{
+res.send("hello")
+  })
 app.use("/api/v1", userRouter);
-// app.use("/api/wallet", walletRouter);
-// app.use("/paymentRouter",paymentRouter)
-
-
-
-function errorHandler(err, req, res, next) {
-  console.error(err.stack); // log the error to the console
-
-  // check if the error has a custom message
-  const errorMessage = err.message || "Something went wrong!";
-
-  // send an error response to the client with the custom message
-  res.status(500).json({ message: errorMessage });
-}
-module.exports = errorHandler;
-
-
 
 app.listen(PORT, () => {
   console.log(`listening on port ${PORT}`);
