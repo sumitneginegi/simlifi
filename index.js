@@ -14,10 +14,10 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyparser.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 2023;
+const PORT = process.env.PORT || 2022;
 
 mongoose
-  .connect(process.env.DB_URI)
+  .connect("mongodb+srv://simlifi:uNTTxXNXD8KBc2GP@cluster0.jjfrdfm.mongodb.net/")
   .then(() => {
     console.log("Db conneted succesfully");
   })
