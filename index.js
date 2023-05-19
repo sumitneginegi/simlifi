@@ -3,8 +3,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 
 const app = express();
+const router = express.Router()
 const bodyparser = require("body-parser");
-// const serverless = require('serverless-http')
 const userRouter = require("./src/route/user")
 
 
@@ -34,7 +34,3 @@ app.use("/api/v1", userRouter);
 app.listen(PORT, () => {
   console.log(`listening on port ${PORT}`);
 });
-
-// module.exports = {
-//   handler: serverless(app)
-// }
